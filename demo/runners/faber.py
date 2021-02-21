@@ -159,6 +159,26 @@ async def generate_invitation(agent, use_did_exchange: bool, auto_accept: bool =
 async def create_schema_and_cred_def(agent, revocation):
     with log_timer("Publish schema/cred def duration:"):
         log_status("#3/4 Create a new schema/cred def on the ledger")
+
+        # create identity schema
+        version_for_identity_schema = format(
+            "%d.%d.%d"
+            % (
+                random.randint(1, 101),
+                random.randint(1, 101),
+                random.randint(1, 101),
+            )
+        )
+        (_, identity_cred_def_id,) = await agent.register_schema_and_creddef(  # schema id
+            "identity schema",
+            version_for_identity_schema,
+            ["firstname", "lastname", "placeofbirth", "dateofbirth", "gender", "timestamp"],
+            support_revocation=revocation,
+            revocation_registry_size=TAILS_FILE_COUNT if revocation else None,
+        )
+        log_msg("Identity Credential Definition ID:", identity_cred_def_id)
+
+        # create degree schema
         version = format(
             "%d.%d.%d"
             % (
@@ -167,14 +187,15 @@ async def create_schema_and_cred_def(agent, revocation):
                 random.randint(1, 101),
             )
         )
-        (_, cred_def_id,) = await agent.register_schema_and_creddef(  # schema id
+        (_, degree_cred_def_id,) = await agent.register_schema_and_creddef(  # schema id
             "degree schema",
             version,
             ["name", "date", "degree", "age", "timestamp"],
             support_revocation=revocation,
             revocation_registry_size=TAILS_FILE_COUNT if revocation else None,
         )
-        return cred_def_id
+        log_msg("Degree Credential Definition ID:", degree_cred_def_id)
+        return degree_cred_def_id
 
 
 async def main(
@@ -331,6 +352,10 @@ async def main(
                     "filter": {"indy": {"cred_def_id": cred_def_id}},
                     "trace": exchange_tracing,
                 }
+
+                log_msg("------------------------------------- here's offer_request")
+                log_msg(json.dumps(offer_request))
+
                 await agent.admin_POST(
                     "/issue-credential-2.0/send-offer", offer_request
                 )
